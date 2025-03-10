@@ -1,11 +1,29 @@
 import React from 'react';
 import { Text } from '@react-navigation/elements';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, FlatList } from 'react-native';
+import OutfitCard from '../../components/outfitCard';
+import { outfitDataset } from '../../constants/datasets/outfitDataset';
+
+interface Outfit {
+  id: string;
+  name: string;
+  image_url: any;
+}
 
 export default function Outfit() {
   return (
     <View style={styles.container}>
-      <Text>Outfits</Text>
+      <FlatList
+        data={outfitDataset.outfits}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <OutfitCard
+            name={item.name}
+            imageUrl={item.image_url}
+          />
+        )}
+        numColumns={3}
+      />
     </View>
   );
 }
@@ -16,5 +34,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
+    margin: 10,
+  },
+  itemContainer: {
+    flex: 1,
+    margin: 10,
   },
 });
