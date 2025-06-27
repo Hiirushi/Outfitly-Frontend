@@ -20,6 +20,7 @@ export default function Outfit() {
           <OutfitCard
             name={item.name}
             imageUrl={item.image_url}
+            outfitId={item.id}
           />
         )}
         numColumns={3}

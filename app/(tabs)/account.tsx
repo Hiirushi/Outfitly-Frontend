@@ -10,6 +10,7 @@ export default function Account() {
     const [image, setImage] = useState<{ uri: string } | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
+    //uploadDp function
     const uploadDp = async (mode?: string) => {
         try {
             let result: ImagePicker.ImagePickerResult;
@@ -90,7 +91,6 @@ export default function Account() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
         padding: 20,
         backgroundColor: '#f5f5f5',

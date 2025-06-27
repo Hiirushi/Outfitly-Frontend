@@ -27,9 +27,6 @@ export default function RootLayout() {
     <>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="closet-type" />
-        <Stack.Screen name="closet-single" />
-        <Stack.Screen name="outfit-single" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />

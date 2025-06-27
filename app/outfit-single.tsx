@@ -39,9 +39,10 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     name: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: "bold",
         marginBottom: 20,
+        textAlign: "center",
     },
     detailsContainer: {
         width: '100%',
@@ -74,6 +75,7 @@ const styles = StyleSheet.create({
         width: 200,
         height: 200,
         resizeMode: 'contain',
+        alignSelf: 'center',
     },
     item: {
         width: "30%",

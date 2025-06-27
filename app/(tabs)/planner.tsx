@@ -1,20 +1,23 @@
 import React from 'react';
-import { Text } from '@react-navigation/elements';
-import { StyleSheet, View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { Calendar } from 'react-native-calendars';
 
-export default function Planner() {
+const Planner: React.FC = () => {
   return (
     <View style={styles.container}>
-      <Text>Planner</Text>
+      <Calendar
+        current={new Date().toISOString().split('T')[0]}
+        enableSwipeMonths={true}
+      />
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
+    backgroundColor: '#fff',
   },
 });
+
+export default Planner;
