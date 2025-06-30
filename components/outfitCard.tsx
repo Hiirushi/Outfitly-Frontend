@@ -12,14 +12,18 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ name, imageUrl, outfitId }) => 
   const router = useRouter();
 
   const handlePress = () => {
-    if (!outfitId) {
-      console.error("Error: outfitId is undefined!");
-      return;
-    }
+  if (!outfitId) {
+    console.error("Error: outfitId is undefined!");
+    return;
+  }
 
-    console.log("Navigating to Outfit:", { id: outfitId });
-    router.push(`/outfit-single?id=${String(outfitId)}`);
-  };
+  console.log("Navigating to Outfit:", { id: outfitId });
+  
+  router.push({
+    pathname: "/outfit-single",
+    params: { id: String(outfitId) }
+  });
+};
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress}>
