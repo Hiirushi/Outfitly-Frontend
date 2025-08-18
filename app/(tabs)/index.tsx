@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { View, StyleSheet, FlatList, ActivityIndicator, Text, TouchableOpacity, Alert } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 import { Item as Item } from "../closet-single"; 
 import OutfitTypeCard from "../../components/ItemTypesCard";
+import AddItemModal from "../../components/AddItemModal";
 import axios from 'axios'; 
 
 const API_BASE_URL = 'http://localhost:3000';
@@ -17,6 +19,7 @@ export default function Home() {
   const [categories, setCategories] = useState<ClosetCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAddModalVisible, setIsAddModalVisible] = useState<boolean>(false);
 
   const processItemsIntoCategories = (items: Item[]): ClosetCategory[] => {
     const groupedItems = items.reduce((acc, item) => {
@@ -74,6 +77,19 @@ export default function Home() {
     fetchItems();
   };
 
+  const handleAddItem = () => {
+    setIsAddModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsAddModalVisible(false);
+  };
+
+  const handleItemAdded = () => {
+    setIsAddModalVisible(false);
+    fetchItems(); // Refresh the list after adding an item
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -105,6 +121,16 @@ export default function Home() {
           <Text style={styles.emptyText}>No items in your closet yet</Text>
           <Text style={styles.emptySubtext}>Add some items to get started!</Text>
         </View>
+        {/* FAB for empty state */}
+        <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
+        
+        <AddItemModal
+          visible={isAddModalVisible}
+          onClose={handleCloseModal}
+          onItemAdded={handleItemAdded}
+        />
       </View>
     );
   }
@@ -126,6 +152,18 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
       />
+      
+      {/* Floating Action Button */}
+      <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
+        <Ionicons name="add" size={28} color="#fff" />
+      </TouchableOpacity>
+      
+      {/* Add Item Modal */}
+      <AddItemModal
+        visible={isAddModalVisible}
+        onClose={handleCloseModal}
+        onItemAdded={handleItemAdded}
+      />
     </View>
   );
 }
@@ -137,6 +175,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 20,
+    paddingBottom: 100, // Add extra space at bottom for FAB
   },
   loadingContainer: {
     flex: 1,
@@ -187,5 +226,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 120, // Position above the tab bar
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
   },
 });
