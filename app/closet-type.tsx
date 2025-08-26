@@ -8,11 +8,11 @@ import { Item as Item } from '../app/closet-single';
 const API_BASE_URL = 'http://localhost:3000'; 
 
 const ClosetType = () => {
-  const { category } = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const router = useRouter();
-  
+  const { typeId } = params;
+
   const [items, setItems] = useState<Item[]>([]);
-  const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,34 +24,35 @@ const ClosetType = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await axios.get<Item[]>(`${API_BASE_URL}/items`);
-      const fetchedItems: Item[] = response.data;
-      
+
+      // Use the type id to fetch items directly from the API
+      const apiTypeId = Array.isArray(typeId) ? typeId[0] : typeId;
+      console.log('Using typeId for API call:', apiTypeId);
+
+      if (!apiTypeId) {
+        setError('No category ID provided');
+        return;
+      }
+
+      const response = await axios.get<{ items: Item[] }>(`${API_BASE_URL}/itemType/${apiTypeId}/items`);
+      console.log('API Response:', response.data);
+      const fetchedItems: Item[] = response.data.items || response.data;
+
       setItems(fetchedItems);
-      
-      const categoryFilter = Array.isArray(category) ? category[0] : category;
-      const filtered = fetchedItems.filter((item: Item) => 
-        item.type.toLowerCase() === categoryFilter?.toLowerCase()
-      );
-      
-      setFilteredItems(filtered);
     } catch (err) {
       console.error('Error fetching items:', err);
       setError('Failed to load items. Please try again.');
-      Alert.alert(
-        'Error', 
-        'Failed to load items. Please check your connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Failed to load items. Please check your connection and try again.', [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchItems();
-  }, [category]);
+    if (typeId) {
+      fetchItems();
+    }
+  }, [typeId]);
 
   const handleRetry = (): void => {
     fetchItems();
@@ -84,26 +85,16 @@ const ClosetType = () => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {filteredItems.length > 0 ? (
+        {items.length > 0 ? (
           <View style={styles.itemsContainer}>
-            {filteredItems.map((item: Item) => (
-              <TouchableOpacity
-                key={item._id}
-                style={styles.itemWrapper}
-                onPress={() => handlePress(item._id)}
-              >
-                <ItemCard 
-                  name={item.name}
-                  imageUrl={{ uri: item.image }}
-                  itemId={item._id}
-                />
+            {items.map((item: Item) => (
+              <TouchableOpacity key={item._id} style={styles.itemWrapper} onPress={() => handlePress(item._id)}>
+                <ItemCard name={item.name} imageUrl={{ uri: item.image }} itemId={item._id} />
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-          <Text style={styles.noItemsText}>
-            No items found for this category.
-          </Text>
+          <Text style={styles.noItemsText}>No items found for this category.</Text>
         )}
       </ScrollView>
     </View>

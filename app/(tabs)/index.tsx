@@ -5,6 +5,7 @@ import { Item as Item } from "../closet-single";
 import OutfitTypeCard from "../../components/ItemTypesCard";
 import AddItemModal from "../../components/AddItemModal";
 import axios from 'axios'; 
+import { useRouter } from 'expo-router';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -16,65 +17,68 @@ interface ClosetCategory {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [categories, setCategories] = useState<ClosetCategory[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalVisible, setIsAddModalVisible] = useState<boolean>(false);
 
-  const processItemsIntoCategories = (items: Item[]): ClosetCategory[] => {
-    const groupedItems = items.reduce((acc, item) => {
-      const type = item.type;
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(item);
-      return acc;
-    }, {} as Record<string, Item[]>);
-
-    const categoriesArray: ClosetCategory[] = Object.entries(groupedItems).map(([type, typeItems]) => ({
-      id: type.toLowerCase().replace(/\s+/g, '-'), // Generate ID from type
-      type: type,
-      items_available: typeItems.length,
-      imageUrl: typeItems[0]?.image || undefined, // Use first item's image as category image
-    }));
-
-    return categoriesArray.sort((a, b) => b.items_available - a.items_available);
-  };
-
-  const fetchItems = async (): Promise<void> => {
+  const fetchCategoriesWithItems = async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await axios.get<Item[]>(`${API_BASE_URL}/items`);
-      const fetchedItems: Item[] = response.data;
 
-      const processedCategories = processItemsIntoCategories(fetchedItems);
-      setCategories(processedCategories);
-      
+      const typeResponse = await axios.get(`${API_BASE_URL}/itemType`);
+      const types = typeResponse.data;
+
+      const typeWithItems = types.map(async (type: any) => {
+        const typeId = type.id;
+        const typeName = type.name;
+
+        if (!typeId) {
+          console.warn('No ID found for type:', type);
+          return null;
+        }
+
+        const res = await axios.get(`${API_BASE_URL}/itemType/${typeId}/items`);
+
+        const items: Item[] = res.data.items || res.data || [];
+
+        return {
+          id: typeId,
+          type: typeName,
+          items_available: items.length,
+          imageUrl: items[0]?.image || undefined,
+        };
+      });
+
+      const categoriesArray = await Promise.all(typeWithItems);
+
+      // Filter out null entries and categories with zero items
+      const filteredCategories = categoriesArray
+        .filter((category) => category !== null && category.items_available > 0)
+        .sort((a, b) => b.items_available - a.items_available);
+
+      setCategories(filteredCategories);
     } catch (err) {
-      console.error('Error fetching items:', err);
+      console.error('Error fetching categories:', err);
       setError('Failed to load categories. Please try again.');
-      Alert.alert(
-        'Error', 
-        'Failed to load categories. Please check your connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Failed to load categories. Please check your connection and try again.', [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchItems();
+    fetchCategoriesWithItems();
   }, []);
 
   const handleRetry = (): void => {
-    fetchItems();
+    fetchCategoriesWithItems();
   };
 
   const handleRefresh = (): void => {
-    fetchItems();
+    fetchCategoriesWithItems();
   };
 
   const handleAddItem = () => {
@@ -87,7 +91,16 @@ export default function Home() {
 
   const handleItemAdded = () => {
     setIsAddModalVisible(false);
-    fetchItems(); // Refresh the list after adding an item
+    fetchCategoriesWithItems();
+  };
+
+  const handleCategoryPress = (categoryId: string) => {
+    if (!categoryId) {
+      Alert.alert('Error', 'Unable to navigate to this category.');
+      return;
+    }
+    // Use query string navigation with explicit query parameter
+    router.push(`/closet-type?typeId=${categoryId}`);
   };
 
   if (loading) {
@@ -121,16 +134,11 @@ export default function Home() {
           <Text style={styles.emptyText}>No items in your closet yet</Text>
           <Text style={styles.emptySubtext}>Add some items to get started!</Text>
         </View>
-        {/* FAB for empty state */}
         <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
           <Ionicons name="add" size={28} color="#fff" />
         </TouchableOpacity>
-        
-        <AddItemModal
-          visible={isAddModalVisible}
-          onClose={handleCloseModal}
-          onItemAdded={handleItemAdded}
-        />
+
+        <AddItemModal visible={isAddModalVisible} onClose={handleCloseModal} onItemAdded={handleItemAdded} />
       </View>
     );
   }
@@ -145,6 +153,9 @@ export default function Home() {
             category={item.type}
             itemCount={item.items_available}
             imageUrl={item.imageUrl}
+            onPress={() => {
+              handleCategoryPress(item.id);
+            }}
           />
         )}
         refreshing={loading}
@@ -152,18 +163,12 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
       />
-      
-      {/* Floating Action Button */}
+
       <TouchableOpacity style={styles.fab} onPress={handleAddItem}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
-      
-      {/* Add Item Modal */}
-      <AddItemModal
-        visible={isAddModalVisible}
-        onClose={handleCloseModal}
-        onItemAdded={handleItemAdded}
-      />
+
+      <AddItemModal visible={isAddModalVisible} onClose={handleCloseModal} onItemAdded={handleItemAdded} />
     </View>
   );
 }
@@ -171,11 +176,11 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
   },
   listContainer: {
     padding: 20,
-    paddingBottom: 100, // Add extra space at bottom for FAB
+    paddingBottom: 100,
   },
   loadingContainer: {
     flex: 1,
@@ -229,20 +234,17 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 120, // Position above the tab bar
+    bottom: 120,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#545454',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 8,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
   },

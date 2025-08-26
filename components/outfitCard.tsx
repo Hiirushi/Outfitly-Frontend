@@ -1,6 +1,6 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import React from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 
 interface OutfitCardProps {
   name: string;
@@ -12,18 +12,20 @@ const OutfitCard: React.FC<OutfitCardProps> = ({ name, imageUrl, outfitId }) => 
   const router = useRouter();
 
   const handlePress = () => {
-  if (!outfitId) {
-    console.error("Error: outfitId is undefined!");
-    return;
-  }
+    console.log('OutfitCard handlePress called with:', { name, outfitId, imageUrl });
 
-  console.log("Navigating to Outfit:", { id: outfitId });
-  
-  router.push({
-    pathname: "/outfit-single",
-    params: { id: String(outfitId) }
-  });
-};
+    if (!outfitId) {
+      console.error('Error: outfitId is undefined!');
+      return;
+    }
+
+    console.log('Navigating to Outfit:', { id: outfitId });
+
+    router.push({
+      pathname: '/outfit-single',
+      params: { id: String(outfitId) },
+    });
+  };
 
   return (
     <TouchableOpacity style={styles.card} onPress={handlePress}>
@@ -40,10 +42,17 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     padding: 10,
-    marginVertical: 5,
-    width: 120,
-    height: 200,
+    margin: 5,
+    flex: 1,
+    maxWidth: '30%',
+    aspectRatio: 0.75,
     backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 2,
@@ -58,8 +67,8 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     flex: 1,
-    justifyContent: "flex-end",
-    alignItems: "center",
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   category: {
     fontSize: 12,

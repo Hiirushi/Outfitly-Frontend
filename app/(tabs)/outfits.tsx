@@ -4,11 +4,13 @@ import { StyleSheet, View, FlatList, ActivityIndicator, TouchableOpacity, Alert 
 import OutfitCard from '../../components/outfitCard';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3000'; // Update this with your backend URL
+const API_BASE_URL = 'http://172.20.10.2:3000';
 
 export interface IOutfit {
-  id: string;
+  _id: string;
   name: string;
+  occassion: string;
+  createdDate: string;
   image_url: any;
 }
 
@@ -23,20 +25,15 @@ export default function Outfit() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await axios.get<IOutfit[]>(`${API_BASE_URL}/outfits`);
       const fetchedOutfits: IOutfit[] = response.data;
-      
+
       setOutfits(fetchedOutfits);
-      
     } catch (err) {
       console.error('Error fetching outfits:', err);
       setError('Failed to load outfits. Please try again.');
-      Alert.alert(
-        'Error', 
-        'Failed to load outfits. Please check your connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Failed to load outfits. Please check your connection and try again.', [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -96,15 +93,12 @@ export default function Outfit() {
     <View style={styles.container}>
       <FlatList
         data={outfits}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <OutfitCard
-            name={item.name}
-            imageUrl={item.image_url}
-            outfitId={item.id}
-          />
-        )}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => <OutfitCard name={item.name} imageUrl={item.image_url} outfitId={item._id} />}
         numColumns={3}
+        columnWrapperStyle={styles.row}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        contentContainerStyle={styles.listContainer}
         onRefresh={fetchOutfits}
         refreshing={loading}
       />
@@ -115,10 +109,17 @@ export default function Outfit() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    margin: 10,
+    backgroundColor: '#fff',
+  },
+  listContainer: {
+    padding: 10,
+  },
+  row: {
+    justifyContent: 'space-around',
+    paddingHorizontal: 5,
+  },
+  separator: {
+    height: 15,
   },
   itemContainer: {
     flex: 1,

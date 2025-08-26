@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ interface AddItemModalProps {
 interface ItemFormData {
   name: string;
   type: string;
+  typeId: string; // Added to store the ObjectId
   color: string;
   dressCode: string;
   brand: string;
@@ -35,20 +36,58 @@ interface ItemFormData {
   image: string | null;
 }
 
-const ITEM_TYPES = [
-  'Dress', 'Shirt', 'Jacket', 'Pants', 'Skirt', 'Sweater', 'T-Shirt',
-  'Jeans', 'Shorts', 'Blouse', 'Cardigan', 'Hoodie', 'Tank Top', 'Other'
-];
+interface ItemType {
+  _id: string;
+  name: string;
+}
 
 const DRESS_CODES = [
-  'Casual', 'Business Casual', 'Business Formal', 'Formal', 'Semi-Formal',
-  'Party', 'Athletic', 'Loungewear', 'Other'
+  'Casual',
+  'Business Casual',
+  'Business Formal',
+  'Formal',
+  'Semi-Formal',
+  'Party',
+  'Athletic',
+  'Beachwear',
+  'Other',
+];
+
+const COLORS = [
+  'Red',
+  'Blue',
+  'Green',
+  'Yellow',
+  'Black',
+  'White',
+  'Gray',
+  'Brown',
+  'Pink',
+  'Purple',
+  'Orange',
+  'Beige',
+];
+
+const MATERIALS = [
+  'Cotton',
+  'Linen',
+  'Silk',
+  'Wool',
+  'Polyester',
+  'Nylon',
+  'Denim',
+  'Leather',
+  'Velvet',
+  'Satin',
+  'Chiffon',
+  'Other',
 ];
 
 const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdded }) => {
   const [formData, setFormData] = useState<ItemFormData>({
     name: '',
     type: '',
+    typeId: '', // Added typeId field
     color: '',
     dressCode: '',
     brand: '',
@@ -58,17 +97,46 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
   const [loading, setLoading] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showDressCodePicker, setShowDressCodePicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showMaterialPicker, setShowMaterialPicker] = useState(false);
+  const [types, setTypes] = useState<ItemType[]>([]);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch types when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      fetchItemTypes();
+    }
+  }, [visible]);
+
+  const fetchItemTypes = async (): Promise<void> => {
+    try {
+      setTypesLoading(true);
+      setError(null);
+      const response = await axios.get<ItemType[]>(`${API_BASE_URL}/itemType`);
+      setTypes(response.data);
+    } catch (err) {
+      console.error('Error fetching types:', err);
+      setError('Failed to load item types. Please try again.');
+      Alert.alert('Error', 'Failed to load item types. Please try again.');
+    } finally {
+      setTypesLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
       name: '',
       type: '',
+      typeId: '', // Reset typeId as well
       color: '',
       dressCode: '',
       brand: '',
       material: '',
       image: null,
     });
+    setError(null);
   };
 
   const handleClose = () => {
@@ -79,7 +147,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
   const pickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
+
       if (permissionResult.granted === false) {
         Alert.alert('Permission Required', 'Permission to access camera roll is required!');
         return;
@@ -97,10 +165,10 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
         console.log('Selected image URI:', asset.uri);
-        
+
         if (Platform.OS === 'web') {
           // For web, handle the file directly
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             image: asset.uri,
           }));
@@ -110,17 +178,17 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             try {
               const filename = `image_${Date.now()}.jpg`;
               const fileUri = `${FileSystem.documentDirectory}${filename}`;
-              
+
               // Extract base64 data
               const base64Data = asset.uri.split(',')[1];
-              
+
               // Write base64 to file
               await FileSystem.writeAsStringAsync(fileUri, base64Data, {
                 encoding: FileSystem.EncodingType.Base64,
               });
-              
+
               console.log('Converted base64 to file:', fileUri);
-              setFormData(prev => ({
+              setFormData((prev) => ({
                 ...prev,
                 image: fileUri,
               }));
@@ -130,7 +198,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             }
           } else {
             // Use the URI directly if it's not base64
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
               image: asset.uri,
             }));
@@ -148,12 +216,12 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
       Alert.alert('Validation Error', 'Please enter an item name');
       return false;
     }
-    if (!formData.type.trim()) {
+    if (!formData.typeId.trim()) {
       Alert.alert('Validation Error', 'Please select an item type');
       return false;
     }
     if (!formData.color.trim()) {
-      Alert.alert('Validation Error', 'Please enter a color');
+      Alert.alert('Validation Error', 'Please select a color');
       return false;
     }
     if (!formData.image) {
@@ -171,7 +239,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
 
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
-      formDataToSend.append('type', formData.type);
+      formDataToSend.append('itemType', formData.typeId); // Send the ObjectId, not the name
       formDataToSend.append('color', formData.color);
       formDataToSend.append('dressCode', formData.dressCode || '');
       formDataToSend.append('brand', formData.brand || '');
@@ -186,7 +254,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
               const response = await fetch(formData.image);
               const blob = await response.blob();
               const filename = `image_${Date.now()}.jpg`;
-              
+
               // Create a File object from the blob
               const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
               formDataToSend.append('image', file);
@@ -219,7 +287,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
           }
 
           const filename = formData.image.split('/').pop() || `image_${Date.now()}.jpg`;
-          
+
           // Determine file type from filename or default to jpeg
           let type = 'image/jpeg';
           const fileExtension = filename.split('.').pop()?.toLowerCase();
@@ -257,14 +325,15 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
 
       console.log('Submitting form data:', {
         name: formData.name,
-        type: formData.type,
+        itemType: formData.typeId, // Log the ObjectId being sent
+        itemTypeName: formData.type, // Also log the name for reference
         color: formData.color,
         dressCode: formData.dressCode,
         brand: formData.brand,
         material: formData.material,
         hasImage: !!formData.image,
         platform: Platform.OS,
-        imageURI: formData.image?.substring(0, 50) + '...' // Truncate for logging
+        imageURI: formData.image?.substring(0, 50) + '...', // Truncate for logging
       });
 
       const response = await axios.post(`${API_BASE_URL}/items`, formDataToSend, {
@@ -281,15 +350,15 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
       }
     } catch (error: any) {
       console.error('Error adding item:', error);
-      
+
       let errorMessage = 'Failed to add item. Please try again.';
-      
+
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
@@ -307,16 +376,66 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.pickerList}>
-            {ITEM_TYPES.map((type) => (
+            {typesLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.loadingText}>Loading types...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity onPress={fetchItemTypes} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              types.map((typeObj) => (
+                <TouchableOpacity
+                  key={typeObj._id}
+                  style={styles.pickerItem}
+                  onPress={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      type: typeObj.name,
+                      typeId: typeObj._id,
+                    }));
+                    setShowTypePicker(false);
+                  }}
+                >
+                  <Text style={styles.pickerItemText}>{typeObj.name}</Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderColorPicker = () => (
+    <Modal visible={showColorPicker} transparent animationType="slide">
+      <View style={styles.pickerOverlay}>
+        <View style={styles.pickerContainer}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select Color</Text>
+            <TouchableOpacity onPress={() => setShowColorPicker(false)}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.pickerList}>
+            {COLORS.map((color) => (
               <TouchableOpacity
-                key={type}
+                key={color}
                 style={styles.pickerItem}
                 onPress={() => {
-                  setFormData(prev => ({ ...prev, type }));
-                  setShowTypePicker(false);
+                  setFormData((prev) => ({ ...prev, color: color }));
+                  setShowColorPicker(false);
                 }}
               >
-                <Text style={styles.pickerItemText}>{type}</Text>
+                <View style={styles.colorPickerItem}>
+                  <View style={[styles.colorSwatch, { backgroundColor: color.toLowerCase() }]} />
+                  <Text style={styles.pickerItemText}>{color}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -341,11 +460,40 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
                 key={code}
                 style={styles.pickerItem}
                 onPress={() => {
-                  setFormData(prev => ({ ...prev, dressCode: code }));
+                  setFormData((prev) => ({ ...prev, dressCode: code }));
                   setShowDressCodePicker(false);
                 }}
               >
                 <Text style={styles.pickerItemText}>{code}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderMaterialPicker = () => (
+    <Modal visible={showMaterialPicker} transparent animationType="slide">
+      <View style={styles.pickerOverlay}>
+        <View style={styles.pickerContainer}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select Material</Text>
+            <TouchableOpacity onPress={() => setShowMaterialPicker(false)}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.pickerList}>
+            {MATERIALS.map((material) => (
+              <TouchableOpacity
+                key={material}
+                style={styles.pickerItem}
+                onPress={() => {
+                  setFormData((prev) => ({ ...prev, material: material }));
+                  setShowMaterialPicker(false);
+                }}
+              >
+                <Text style={styles.pickerItemText}>{material}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -398,7 +546,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
               <TextInput
                 style={styles.input}
                 value={formData.name}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, name: text }))}
                 placeholder="Enter item name"
                 placeholderTextColor="#999"
               />
@@ -407,10 +555,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             {/* Type */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Type *</Text>
-              <TouchableOpacity
-                style={styles.selectInput}
-                onPress={() => setShowTypePicker(true)}
-              >
+              <TouchableOpacity style={styles.selectInput} onPress={() => setShowTypePicker(true)}>
                 <Text style={[styles.selectText, !formData.type && styles.placeholderText]}>
                   {formData.type || 'Select item type'}
                 </Text>
@@ -421,22 +566,23 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             {/* Color */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Color *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.color}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, color: text }))}
-                placeholder="Enter color"
-                placeholderTextColor="#999"
-              />
+              <TouchableOpacity style={styles.selectInput} onPress={() => setShowColorPicker(true)}>
+                <View style={styles.colorPickerButton}>
+                  {formData.color && (
+                    <View style={[styles.colorSwatch, { backgroundColor: formData.color.toLowerCase() }]} />
+                  )}
+                  <Text style={[styles.selectText, !formData.color && styles.placeholderText]}>
+                    {formData.color || 'Select color'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-down" size={20} color="#999" />
+              </TouchableOpacity>
             </View>
 
             {/* Dress Code */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Dress Code</Text>
-              <TouchableOpacity
-                style={styles.selectInput}
-                onPress={() => setShowDressCodePicker(true)}
-              >
+              <TouchableOpacity style={styles.selectInput} onPress={() => setShowDressCodePicker(true)}>
                 <Text style={[styles.selectText, !formData.dressCode && styles.placeholderText]}>
                   {formData.dressCode || 'Select dress code'}
                 </Text>
@@ -450,7 +596,7 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
               <TextInput
                 style={styles.input}
                 value={formData.brand}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, brand: text }))}
+                onChangeText={(text) => setFormData((prev) => ({ ...prev, brand: text }))}
                 placeholder="Enter brand"
                 placeholderTextColor="#999"
               />
@@ -459,20 +605,21 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             {/* Material */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Material</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.material}
-                onChangeText={(text) => setFormData(prev => ({ ...prev, material: text }))}
-                placeholder="Enter material"
-                placeholderTextColor="#999"
-              />
+              <TouchableOpacity style={styles.selectInput} onPress={() => setShowMaterialPicker(true)}>
+                <Text style={[styles.selectText, !formData.material && styles.placeholderText]}>
+                  {formData.material || 'Select material'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color="#999" />
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
       </Modal>
 
       {renderTypePicker()}
+      {renderColorPicker()}
       {renderDressCodePicker()}
+      {renderMaterialPicker()}
     </>
   );
 };
@@ -611,6 +758,54 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: 16,
     color: '#333',
+  },
+  colorPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorSwatch: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff4444',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

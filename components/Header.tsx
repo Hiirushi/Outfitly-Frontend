@@ -14,12 +14,6 @@ const Header: React.FC<{ tabName: string }> = ({ tabName }) => {
   return (
     <View style={styles.headerContainer}>
       <Text style={styles.tabName}>{tabName}</Text>
-      <View style={styles.separator} />
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search"
-        placeholderTextColor="#888"
-      />
     </View>
   );
 };

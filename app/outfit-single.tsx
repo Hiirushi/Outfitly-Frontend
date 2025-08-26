@@ -1,38 +1,33 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Alert } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
-import {IOutfit}  from "./(tabs)/outfits";
+import { IOutfit } from './(tabs)/outfits';
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'http://172.20.10.2:3000';
 
 const OutfitSingle = () => {
   const { id } = useLocalSearchParams();
-  
+
   const [outfit, setOutfit] = useState<IOutfit | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  console.log("OutfitSingle id:", id);
+  console.log('OutfitSingle id:', id);
 
   const fetchOutfit = async (): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await axios.get<IOutfit>(`${API_BASE_URL}/outfits/${id}`);
       const fetchedOutfit: IOutfit = response.data;
-      
+
       setOutfit(fetchedOutfit);
-      
     } catch (err) {
       console.error('Error fetching outfit:', err);
       setError('Failed to load outfit. Please try again.');
-      Alert.alert(
-        'Error', 
-        'Failed to load outfit. Please check your connection and try again.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Error', 'Failed to load outfit. Please check your connection and try again.', [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -46,6 +41,11 @@ const OutfitSingle = () => {
 
   const handleRetry = (): void => {
     fetchOutfit();
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
   };
 
   if (loading) {
@@ -86,11 +86,19 @@ const OutfitSingle = () => {
     <View style={styles.container}>
       <Image source={{ uri: outfit.image_url }} style={styles.image} />
       <Text style={styles.name}>{outfit.name}</Text>
-      
+
       <View style={styles.detailsContainer}>
         <View style={styles.row}>
           <Text style={styles.label}>Name</Text>
           <Text style={styles.value}>{outfit.name}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Occassion</Text>
+          <Text style={styles.value}>{outfit.occassion}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>Created Date</Text>
+          <Text style={styles.value}>{outfit.createdDate ? formatDate(outfit.createdDate) : 'N/A'}</Text>
         </View>
       </View>
     </View>
@@ -100,14 +108,14 @@ const OutfitSingle = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: '#fff',
     padding: 20,
   },
   name: {
     fontSize: 22,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 20,
-    textAlign: "center",
+    textAlign: 'center',
   },
   detailsContainer: {
     width: '100%',
@@ -132,9 +140,9 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   itemsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   image: {
     width: 200,
@@ -143,21 +151,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   item: {
-    width: "30%",
+    width: '30%',
     marginBottom: 20,
     padding: 10,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: '#ddd',
     borderRadius: 8,
   },
   itemName: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
     marginBottom: 5,
   },
   itemType: {
     fontSize: 14,
-    color: "#888",
+    color: '#888',
   },
   errorText: {
     fontSize: 18,

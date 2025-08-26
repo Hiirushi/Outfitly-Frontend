@@ -1,22 +1,16 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import React from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
 interface ItemTypeCardProps {
   category: string;
   itemCount: number;
   imageUrl: any;
+  onPress?: () => void;
 }
 
-const ItemTypeCard: React.FC<ItemTypeCardProps> = ({ category, itemCount, imageUrl }) => {
-  const router = useRouter();
-
-  const handlePress = () => {
-    router.push(`/closet-type?category=${category}`);
-  };
-
+const ItemTypeCard: React.FC<ItemTypeCardProps> = ({ category, itemCount, imageUrl, onPress }) => {
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress}>
+    <TouchableOpacity style={styles.card} onPress={onPress}>
       <Image source={imageUrl} style={styles.image} />
       <View style={styles.textContainer}>
         <Text style={styles.category}>{category}</Text>
@@ -38,7 +32,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 5,
     elevation: 2,
-    height: 80, 
+    height: 80,
   },
   image: {
     width: 60,
