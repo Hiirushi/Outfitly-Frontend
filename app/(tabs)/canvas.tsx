@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ItemsPopUp from '@/components/itemsPopUp';
+import WeatherWidget from '@/components/WeatherWidget';
 
 interface DroppedItem {
   id: string;
@@ -171,6 +172,10 @@ export default function Canvas() {
 
   return (
     <View style={styles.container}>
+      {/* Weather widget top-left */}
+      <View style={styles.weatherWrap} pointerEvents="box-none">
+        <WeatherWidget />
+      </View>
       {/* Canvas area with dropped items */}
       <View style={styles.canvasArea}>
         {droppedItems.length === 0 && (
@@ -447,5 +452,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: 'white',
+  },
+  weatherWrap: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 20,
   },
 });
