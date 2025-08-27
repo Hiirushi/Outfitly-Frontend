@@ -33,10 +33,10 @@ const ClosetSingle = () => {
         
         const response = await axios.get<Item>(`${API_BASE_URL}/items/${id}`);
         setItem(response.data);
-      } catch (error) {
-        console.error('Error fetching item:', error);
-        setError(error.response?.data?.message || 'Failed to fetch item');
-        
+      } catch (err: any) {
+        console.error('Error fetching item:', err);
+        setError(err?.response?.data?.message || 'Failed to fetch item');
+
         Alert.alert(
           'Error',
           'Failed to load item details. Please try again.',
