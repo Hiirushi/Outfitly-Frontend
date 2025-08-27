@@ -93,8 +93,8 @@ const OutfitSingle = () => {
           <Text style={styles.value}>{outfit.name}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>Occassion</Text>
-          <Text style={styles.value}>{outfit.occassion}</Text>
+          <Text style={styles.label}>Occasion</Text>
+          <Text style={styles.value}>{outfit.occasion ?? outfit.occassion ?? 'N/A'}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Created Date</Text>
