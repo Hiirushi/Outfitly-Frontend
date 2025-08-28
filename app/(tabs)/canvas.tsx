@@ -14,13 +14,19 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ItemsPopUp from '@/components/itemsPopUp';
+import axios from 'axios';
 
 interface DroppedItem {
-  id: string;
+  id: string; // Unique ID for this dropped instance
+  itemId: string; // Required: DB item ID (MongoDB ObjectId)
   image: string;
   name: string;
   x: number;
   y: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  zIndex?: number;
 }
 
 export default function Canvas() {
@@ -28,27 +34,48 @@ export default function Canvas() {
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [outfitName, setOutfitName] = useState('');
   const [outfitOccasion, setOutfitOccasion] = useState('');
+  const [plannedDate, setPlannedDate] = useState(''); // optional
   const [droppedItems, setDroppedItems] = useState<DroppedItem[]>([]);
   const screenWidth = Dimensions.get('window').width;
   const screenHeight = Dimensions.get('window').height;
+
+  const userId = '67cee702a0d6029d0c9a159b';
 
   const handleItemDrag = (item: any, gestureState: any) => {
     const modalHeight = screenHeight * 0.5;
     const canvasArea = screenHeight - modalHeight;
 
-    // Check if item was dragged above the modal (to canvas area)
     if (gestureState.absoluteY < canvasArea + 50) {
+      // Try different possible property names for the database ID
+      const actualItemId = item._id || item.id || item.itemId;
+
+      if (!actualItemId) {
+        Alert.alert('Error', 'Invalid item - missing database ID.');
+        return;
+      }
+
+      // Ensure the ID is a string
+      const itemIdString = String(actualItemId);
+
+      if (itemIdString === 'undefined' || itemIdString.includes('undefined')) {
+        Alert.alert('Error', 'Item ID is invalid. Please check the ItemsPopUp component.');
+        return;
+      }
+
       const newItem: DroppedItem = {
-        id: item.id + '_' + Date.now(), // Make unique ID for multiple instances
+        id: itemIdString + '_dropped_' + Date.now(), // Unique ID for the dropped instance
+        itemId: itemIdString, // The actual database ID
         image: item.image,
         name: item.name,
-        x: Math.max(10, Math.min(gestureState.absoluteX - 30, screenWidth - 70)), // Keep within bounds with padding
+        x: Math.max(10, Math.min(gestureState.absoluteX - 30, screenWidth - 70)),
         y: Math.max(10, Math.min(gestureState.absoluteY - 30, canvasArea - 70)),
+        width: 200,
+        height: 200,
+        rotation: 0,
+        zIndex: 1,
       };
 
       setDroppedItems((prev) => [...prev, newItem]);
-      console.log('Item dropped:', newItem);
-      console.log('All dropped items:', [...droppedItems, newItem]);
     }
   };
 
@@ -68,37 +95,76 @@ export default function Canvas() {
     setSaveModalVisible(true);
   };
 
-  const handleSaveOutfit = () => {
+  const handleSaveOutfit = async () => {
     if (!outfitName.trim()) {
       Alert.alert('Missing Name', 'Please enter a name for your outfit.');
       return;
     }
 
-    // Here you would typically save to backend
-    console.log('Saving outfit:', {
-      name: outfitName,
-      occasion: outfitOccasion,
-      items: droppedItems,
+    // Validate that all items have valid itemIds
+    const invalidItems = droppedItems.filter((d) => {
+      return (
+        !d.itemId ||
+        d.itemId.includes('undefined') ||
+        d.itemId === 'undefined' ||
+        typeof d.itemId !== 'string' ||
+        d.itemId.trim() === ''
+      );
     });
 
-    Alert.alert('Success', 'Outfit saved successfully!', [
-      {
-        text: 'OK',
-        onPress: () => {
-          // Reset the form and close modal
-          setOutfitName('');
-          setOutfitOccasion('');
-          setSaveModalVisible(false);
-          // Optionally clear the canvas
-          // setDroppedItems([]);
-        },
-      },
-    ]);
+    if (invalidItems.length > 0) {
+      Alert.alert(
+        'Error',
+        `${
+          invalidItems.length
+        } item(s) have invalid IDs. Please remove and re-add them.\n\nInvalid items: ${invalidItems
+          .map((i) => i.name)
+          .join(', ')}`,
+      );
+      return;
+    }
+
+    try {
+      const payload = {
+        name: outfitName,
+        occasion: outfitOccasion || 'General',
+        plannedDate: plannedDate ? new Date(plannedDate).toISOString() : null,
+        user: userId,
+        items: droppedItems.map((d) => ({
+          item: d.itemId, // Use itemId directly since we've validated it exists
+          x: d.x,
+          y: d.y,
+          width: d.width || 200,
+          height: d.height || 200,
+          rotation: d.rotation || 0,
+          zIndex: d.zIndex || 1,
+        })),
+      };
+
+      await axios.post('http://localhost:3000/outfits', payload);
+
+      // Reset form and close modal immediately after successful save
+      setOutfitName('');
+      setOutfitOccasion('');
+      setPlannedDate('');
+      setDroppedItems([]);
+      setSaveModalVisible(false);
+
+      // Inform the user
+      Alert.alert('Success', 'Outfit saved successfully!');
+    } catch (error: any) {
+      console.error('Save outfit error:', error.response?.data || error.message);
+      Alert.alert(
+        'Error',
+        `Could not save outfit. Please try again.\n\nError: ${error.response?.data?.message || error.message}`,
+      );
+    }
   };
 
   const handleCancelSave = () => {
     setOutfitName('');
     setOutfitOccasion('');
+    setPlannedDate('');
     setSaveModalVisible(false);
   };
 
@@ -110,59 +176,34 @@ export default function Canvas() {
       PanResponder.create({
         onMoveShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
-          // Set the offset to the current animated values
-          pan.setOffset({
-            x: item.x,
-            y: item.y,
-          });
+          pan.setOffset({ x: item.x, y: item.y });
           pan.setValue({ x: 0, y: 0 });
-
-          Animated.spring(scale, {
-            toValue: 1.1,
-            useNativeDriver: false,
-          }).start();
+          Animated.spring(scale, { toValue: 1.1, useNativeDriver: false }).start();
         },
         onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
         onPanResponderRelease: (evt, gestureState) => {
-          // Calculate the final position
           const finalX = Math.max(10, Math.min(item.x + gestureState.dx, screenWidth - 70));
           const finalY = Math.max(10, Math.min(item.y + gestureState.dy, screenHeight * 0.5 - 70));
 
-          // Update the item position in state
           updateItemPosition(item.id, finalX, finalY);
 
-          // Reset the animated values
           pan.flattenOffset();
           pan.setValue({ x: finalX, y: finalY });
 
-          Animated.spring(scale, {
-            toValue: 1,
-            useNativeDriver: false,
-          }).start();
+          Animated.spring(scale, { toValue: 1, useNativeDriver: false }).start();
         },
       }),
     ).current;
 
     return (
       <Animated.View
-        style={[
-          styles.droppedItem,
-          {
-            transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }],
-          },
-        ]}
+        style={[styles.droppedItem, { transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale }] }]}
         {...panResponder.panHandlers}
       >
         <TouchableOpacity style={styles.itemTouchable}>
           <Image source={{ uri: item.image }} style={styles.droppedItemImage} />
         </TouchableOpacity>
-
-        {/* X button for removing the item */}
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => removeItem(item.id)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
+        <TouchableOpacity style={styles.removeButton} onPress={() => removeItem(item.id)}>
           <Ionicons name="close" size={14} color="white" />
         </TouchableOpacity>
       </Animated.View>
@@ -171,7 +212,6 @@ export default function Canvas() {
 
   return (
     <View style={styles.container}>
-      {/* Canvas area with dropped items */}
       <View style={styles.canvasArea}>
         {droppedItems.length === 0 && (
           <View style={styles.dropZoneHint}>
@@ -188,19 +228,13 @@ export default function Canvas() {
         <Ionicons name="add" size={24} color="white" />
       </TouchableOpacity>
 
-      {/* Done button - only show when there are items */}
       {droppedItems.length > 0 && (
         <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
           <Ionicons name="checkmark" size={24} color="white" />
         </TouchableOpacity>
       )}
 
-      <Modal
-        animationType="none"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal animationType="none" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.closeButton} onPress={() => setModalVisible(false)}>
@@ -211,8 +245,7 @@ export default function Canvas() {
         </View>
       </Modal>
 
-      {/* Save Outfit Modal */}
-      <Modal animationType="fade" transparent={true} visible={saveModalVisible} onRequestClose={handleCancelSave}>
+      <Modal animationType="fade" transparent visible={saveModalVisible} onRequestClose={handleCancelSave}>
         <View style={styles.saveModalOverlay}>
           <View style={styles.saveModalContent}>
             <Text style={styles.saveModalTitle}>Save Outfit</Text>
@@ -239,6 +272,17 @@ export default function Canvas() {
               />
             </View>
 
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Planned Date</Text>
+              <TextInput
+                style={styles.textInput}
+                value={plannedDate}
+                onChangeText={setPlannedDate}
+                placeholder="YYYY-MM-DD (optional)"
+                placeholderTextColor="#999"
+              />
+            </View>
+
             <View style={styles.saveModalButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={handleCancelSave}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -255,18 +299,8 @@ export default function Canvas() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-  canvasArea: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: '#fff',
-    position: 'relative',
-  },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  canvasArea: { flex: 1, width: '100%', backgroundColor: '#fff', position: 'relative' },
   dropZoneHint: {
     position: 'absolute',
     top: '40%',
@@ -276,12 +310,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 200,
   },
-  dropZoneText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#ccc',
-    textAlign: 'center',
-  },
+  dropZoneText: { marginTop: 10, fontSize: 16, color: '#ccc', textAlign: 'center' },
   droppedItem: {
     position: 'absolute',
     width: 60,
@@ -290,17 +319,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  itemTouchable: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  droppedItemImage: {
-    width: 200,
-    height: 200,
-    borderRadius: 6,
-  },
+  itemTouchable: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  droppedItemImage: { width: 200, height: 200, borderRadius: 6 },
   removeButton: {
     position: 'absolute',
     top: -70,
@@ -313,11 +333,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'white',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 3,
     zIndex: 1,
   },
   add: {
@@ -330,31 +345,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#545454',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '100%',
-    height: '50%',
-    backgroundColor: 'white',
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-    padding: 20,
-    alignItems: 'center',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
   },
   doneButton: {
     position: 'absolute',
@@ -366,46 +356,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#80AE85',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
   },
-  saveModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  modalContainer: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContent: {
+    width: '100%',
+    height: '50%',
+    backgroundColor: 'white',
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    padding: 20,
     alignItems: 'center',
   },
-  saveModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 30,
-    width: '85%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 10,
-  },
-  saveModalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 25,
-    color: '#333',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-  },
+  closeButton: { position: 'absolute', top: 10, right: 10 },
+  saveModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  saveModalContent: { backgroundColor: 'white', borderRadius: 20, padding: 30, width: '85%', maxWidth: 400 },
+  saveModalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 25, color: '#333' },
+  inputContainer: { marginBottom: 20 },
+  inputLabel: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
@@ -415,11 +382,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
-  saveModalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
+  saveModalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   cancelButton: {
     flex: 1,
     paddingVertical: 12,
@@ -428,12 +391,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     marginRight: 10,
   },
-  cancelButtonText: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
+  cancelButtonText: { textAlign: 'center', fontSize: 16, fontWeight: '600', color: '#666' },
   saveButton: {
     flex: 1,
     paddingVertical: 12,
@@ -442,10 +400,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#80AE85',
     marginLeft: 10,
   },
-  saveButtonText: {
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: 'white',
-  },
+  saveButtonText: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
 });
