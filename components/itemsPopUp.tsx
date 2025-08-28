@@ -230,7 +230,7 @@ export default function ItemsPopUp({ onItemDrag }: ItemsPopUpProps) {
 
   return (
     <View style={styles.container}>
-      {/* Only show filter section if there are item types with items */}
+      {/* Filter Section with improved positioning and simplified logic */}
       {itemTypes.length > 0 && (
         <View style={styles.filterSection}>
           <ScrollView
@@ -238,29 +238,22 @@ export default function ItemsPopUp({ onItemDrag }: ItemsPopUpProps) {
             showsHorizontalScrollIndicator={true}
             contentContainerStyle={styles.scrollContentContainer}
             style={styles.horizontalScrollView}
-            bounces={true}
           >
-            <View style={styles.buttonsRow}>
-              {/* Only show "All" button if there are item types with items */}
-              {itemTypes.length > 0 && (
-                <View style={styles.buttonWrapper}>
-                  <PopupScreenButton
-                    type="All"
-                    isSelected={selectedTypeId === 'All'}
-                    onPress={() => handleTypeSelect('All')}
-                  />
-                </View>
-              )}
-              {itemTypes.map((itemType) => (
-                <View key={itemType.id} style={styles.buttonWrapper}>
-                  <PopupScreenButton
-                    type={itemType.name}
-                    isSelected={selectedTypeId === itemType.id}
-                    onPress={() => handleTypeSelect(itemType.id)}
-                  />
-                </View>
-              ))}
-            </View>
+            {/* All button */}
+            <PopupScreenButton
+              type="All"
+              isSelected={selectedTypeId === 'All'}
+              onPress={() => handleTypeSelect('All')}
+            />
+            {/* Item type buttons */}
+            {itemTypes.map((itemType) => (
+              <PopupScreenButton
+                key={itemType.id}
+                type={itemType.name}
+                isSelected={selectedTypeId === itemType.id}
+                onPress={() => handleTypeSelect(itemType.id)}
+              />
+            ))}
           </ScrollView>
         </View>
       )}
@@ -307,19 +300,21 @@ const styles = StyleSheet.create({
   filterSection: {
     height: 80,
     backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     marginBottom: 10,
+    marginTop: 20,
   },
   horizontalScrollView: {
-    flexGrow: 0,
-    flexShrink: 1,
+    flex: 1,
+    width: 320,
   },
   scrollContentContainer: {
     alignItems: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 10,
+    gap: 15,
   },
   buttonsRow: {
     flexDirection: 'row',
@@ -385,7 +380,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-    maxWidth: '30%', // Ensures 3 columns with proper spacing
+    maxWidth: '30%',
   },
   itemImage: {
     width: 60,

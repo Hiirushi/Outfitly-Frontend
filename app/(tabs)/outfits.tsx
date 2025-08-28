@@ -9,7 +9,9 @@ const API_BASE_URL = 'http://172.20.10.2:3000';
 export interface IOutfit {
   _id: string;
   name: string;
-  occassion: string;
+  occasion?: string;
+  // keep misspelled property for backwards compatibility
+  occassion?: string;
   createdDate: string;
   image_url: any;
 }
