@@ -11,6 +11,7 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,12 +29,13 @@ interface AddItemModalProps {
 interface ItemFormData {
   name: string;
   type: string;
-  typeId: string; // Added to store the ObjectId
+  typeId: string;
   color: string;
   dressCode: string;
   brand: string;
   material: string;
   image: string | null;
+  removeBg: boolean; // New field for background removal
 }
 
 interface ItemType {
@@ -87,12 +89,13 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
   const [formData, setFormData] = useState<ItemFormData>({
     name: '',
     type: '',
-    typeId: '', // Added typeId field
+    typeId: '',
     color: '',
     dressCode: '',
     brand: '',
     material: '',
     image: null,
+    removeBg: true, // Default to true for background removal
   });
   const [loading, setLoading] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
@@ -129,12 +132,13 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
     setFormData({
       name: '',
       type: '',
-      typeId: '', // Reset typeId as well
+      typeId: '',
       color: '',
       dressCode: '',
       brand: '',
       material: '',
       image: null,
+      removeBg: true,
     });
     setError(null);
   };
@@ -167,22 +171,17 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
         console.log('Selected image URI:', asset.uri);
 
         if (Platform.OS === 'web') {
-          // For web, handle the file directly
           setFormData((prev) => ({
             ...prev,
             image: asset.uri,
           }));
         } else {
-          // For mobile, handle base64 conversion if needed
           if (asset.uri.startsWith('data:')) {
             try {
               const filename = `image_${Date.now()}.jpg`;
               const fileUri = `${FileSystem.documentDirectory}${filename}`;
 
-              // Extract base64 data
               const base64Data = asset.uri.split(',')[1];
-
-              // Write base64 to file
               await FileSystem.writeAsStringAsync(fileUri, base64Data, {
                 encoding: FileSystem.EncodingType.Base64,
               });
@@ -197,7 +196,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
               Alert.alert('Error', 'Failed to process image');
             }
           } else {
-            // Use the URI directly if it's not base64
             setFormData((prev) => ({
               ...prev,
               image: asset.uri,
@@ -239,23 +237,21 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
 
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
-      formDataToSend.append('itemType', formData.typeId); // Send the ObjectId, not the name
+      formDataToSend.append('itemType', formData.typeId);
       formDataToSend.append('color', formData.color);
       formDataToSend.append('dressCode', formData.dressCode || '');
       formDataToSend.append('brand', formData.brand || '');
       formDataToSend.append('material', formData.material || '');
+      formDataToSend.append('removeBg', formData.removeBg.toString()); // Add background removal flag
 
       // Handle image upload
       if (formData.image) {
         if (Platform.OS === 'web') {
-          // For web, handle blob/file upload
           if (formData.image.startsWith('blob:')) {
             try {
               const response = await fetch(formData.image);
               const blob = await response.blob();
               const filename = `image_${Date.now()}.jpg`;
-
-              // Create a File object from the blob
               const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
               formDataToSend.append('image', file);
               console.log('Web: Added file to form data:', filename);
@@ -265,7 +261,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
               return;
             }
           } else if (formData.image.startsWith('data:')) {
-            // Handle base64 data on web
             try {
               const response = await fetch(formData.image);
               const blob = await response.blob();
@@ -280,15 +275,12 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             }
           }
         } else {
-          // For mobile platforms
           if (formData.image.startsWith('data:')) {
             Alert.alert('Error', 'Please try selecting the image again');
             return;
           }
 
           const filename = formData.image.split('/').pop() || `image_${Date.now()}.jpg`;
-
-          // Determine file type from filename or default to jpeg
           let type = 'image/jpeg';
           const fileExtension = filename.split('.').pop()?.toLowerCase();
           if (fileExtension) {
@@ -311,7 +303,6 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
             }
           }
 
-          // Create the file object for React Native
           const imageFile = {
             uri: Platform.OS === 'ios' ? formData.image.replace('file://', '') : formData.image,
             name: filename,
@@ -325,15 +316,14 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
 
       console.log('Submitting form data:', {
         name: formData.name,
-        itemType: formData.typeId, // Log the ObjectId being sent
-        itemTypeName: formData.type, // Also log the name for reference
+        itemType: formData.typeId,
         color: formData.color,
         dressCode: formData.dressCode,
         brand: formData.brand,
         material: formData.material,
+        removeBg: formData.removeBg, // Log background removal setting
         hasImage: !!formData.image,
         platform: Platform.OS,
-        imageURI: formData.image?.substring(0, 50) + '...', // Truncate for logging
       });
 
       const response = await axios.post(`${API_BASE_URL}/items`, formDataToSend, {
@@ -344,7 +334,12 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
       });
 
       if (response.status === 201 || response.status === 200) {
-        Alert.alert('Success', 'Item added successfully!');
+        const successMessage =
+          formData.removeBg && response.data.backgroundRemoved
+            ? 'Item added successfully with background removed!'
+            : 'Item added successfully!';
+
+        Alert.alert('Success', successMessage);
         resetForm();
         onItemAdded();
       }
@@ -357,6 +352,11 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
+      }
+
+      // Special handling for background removal errors
+      if (errorMessage.includes('remove background') || errorMessage.includes('Remove.bg')) {
+        errorMessage += '\nTry turning off background removal or check your internet connection.';
       }
 
       Alert.alert('Error', errorMessage);
@@ -538,6 +538,25 @@ const AddItemModal: React.FC<AddItemModalProps> = ({ visible, onClose, onItemAdd
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* Background Removal Toggle */}
+              <View style={styles.toggleSection}>
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleInfo}>
+                    <Text style={styles.toggleLabel}>Remove Background</Text>
+                    <Text style={styles.toggleDescription}>Automatically remove background from your image</Text>
+                  </View>
+                  <Switch
+                    value={formData.removeBg}
+                    onValueChange={(value) => setFormData((prev) => ({ ...prev, removeBg: value }))}
+                    trackColor={{ false: '#767577', true: '#81b0ff' }}
+                    thumbColor={formData.removeBg ? '#007AFF' : '#f4f3f4'}
+                  />
+                </View>
+                {formData.removeBg && (
+                  <Text style={styles.toggleNote}>Background removal may take a few extra seconds</Text>
+                )}
+              </View>
             </View>
 
             {/* Name */}
@@ -690,6 +709,38 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 16,
     color: '#999',
+  },
+  toggleSection: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggleInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  toggleDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+  },
+  toggleNote: {
+    fontSize: 12,
+    color: '#007AFF',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   inputGroup: {
     marginBottom: 20,
