@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   horizontalScrollView: {
     flex: 1,
-    width: 320,
+    width: 400,
   },
   scrollContentContainer: {
     alignItems: 'center',
