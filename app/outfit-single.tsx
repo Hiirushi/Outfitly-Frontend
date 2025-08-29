@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 import { IOutfit } from './(tabs)/outfits';
@@ -48,6 +48,96 @@ const OutfitSingle = () => {
     return date.toLocaleDateString();
   };
 
+  // Function to normalize coordinates for the larger outfit view
+  const normalizePosition = (x: number, y: number, itemWidth: number, itemHeight: number) => {
+    // Assuming the original canvas was around 500x600 pixels
+    const originalCanvasWidth = 500;
+    const originalCanvasHeight = 600;
+    
+    // Calculate normalized position as ratios (0 to 1)
+    const normalizedX = Math.max(0, Math.min(x / originalCanvasWidth, 1));
+    const normalizedY = Math.max(0, Math.min(y / originalCanvasHeight, 1));
+    const normalizedWidth = Math.min(itemWidth / originalCanvasWidth, 0.8); // Cap at 80% of container
+    const normalizedHeight = Math.min(itemHeight / originalCanvasHeight, 0.8); // Cap at 80% of container
+    
+    return {
+      normalizedX,
+      normalizedY,
+      normalizedWidth,
+      normalizedHeight,
+    };
+  };
+
+  const renderOutfitItems = () => {
+    if (!outfit?.items || outfit.items.length === 0) {
+      return (
+        <View style={styles.emptyOutfit}>
+          <Text style={styles.emptyText}>No items in this outfit</Text>
+        </View>
+      );
+    }
+
+    // Sort items by zIndex to ensure proper layering
+    const sortedItems = [...outfit.items].sort((a, b) => a.zIndex - b.zIndex);
+
+    return sortedItems.map((outfitItem, index) => {
+      const position = normalizePosition(
+        outfitItem.x,
+        outfitItem.y,
+        outfitItem.width,
+        outfitItem.height
+      );
+
+      return (
+        <View
+          key={`${outfitItem._id}-${index}`}
+          style={[
+            styles.itemWrapper,
+            {
+              left: `${position.normalizedX * 100}%`,
+              top: `${position.normalizedY * 100}%`,
+              width: `${position.normalizedWidth * 100}%`,
+              height: `${position.normalizedHeight * 100}%`,
+              transform: [{ rotate: `${outfitItem.rotation}deg` }],
+              zIndex: outfitItem.zIndex,
+            },
+          ]}
+        >
+          <Image
+            source={{ uri: outfitItem.item.image }}
+            style={styles.itemImage}
+            resizeMode="contain"
+          />
+        </View>
+      );
+    });
+  };
+
+  const renderItemsList = () => {
+    if (!outfit?.items || outfit.items.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.itemsListContainer}>
+        <Text style={styles.itemsListTitle}>Items in this outfit:</Text>
+        {outfit.items.map((outfitItem, index) => (
+          <View key={`${outfitItem._id}-list-${index}`} style={styles.itemListRow}>
+            <Image 
+              source={{ uri: outfitItem.item.image }} 
+              style={styles.itemListImage} 
+            />
+            <View style={styles.itemListDetails}>
+              <Text style={styles.itemListName}>{outfitItem.item.name}</Text>
+              <Text style={styles.itemListBrand}>{outfitItem.item.brand}</Text>
+              <Text style={styles.itemListColor}>{outfitItem.item.color} • {outfitItem.item.material}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -83,25 +173,31 @@ const OutfitSingle = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <Image source={{ uri: outfit.image_url }} style={styles.image} />
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.name}>{outfit.name}</Text>
+      
+      {/* Outfit Visualization */}
+      <View style={styles.outfitContainer}>
+        {renderOutfitItems()}
+      </View>
 
+      {/* Outfit Details */}
       <View style={styles.detailsContainer}>
-        <View style={styles.row}>
-          <Text style={styles.label}>Name</Text>
-          <Text style={styles.value}>{outfit.name}</Text>
-        </View>
         <View style={styles.row}>
           <Text style={styles.label}>Occasion</Text>
           <Text style={styles.value}>{outfit.occasion ?? outfit.occassion ?? 'N/A'}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Created Date</Text>
-          <Text style={styles.value}>{outfit.createdDate ? formatDate(outfit.createdDate) : 'N/A'}</Text>
-        </View>
+        {outfit.plannedDate && (
+          <View style={styles.row}>
+            <Text style={styles.label}>Planned Date</Text>
+            <Text style={styles.value}>{formatDate(outfit.plannedDate)}</Text>
+          </View>
+        )}
       </View>
-    </View>
+
+      {/* Items List */}
+      {renderItemsList()}
+    </ScrollView>
   );
 };
 
@@ -112,60 +208,107 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   name: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
+  },
+  outfitContainer: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 12,
+    marginBottom: 20,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  itemWrapper: {
+    position: 'absolute',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+  },
+  emptyOutfit: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    fontStyle: 'italic',
   },
   detailsContainer: {
     width: '100%',
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    paddingTop: 10,
+    marginBottom: 20,
+    backgroundColor: '#f9f9f9',
+    padding: 15,
+    borderRadius: 8,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 5,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    borderBottomColor: '#eee',
   },
   label: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
   },
   value: {
     fontSize: 16,
     color: '#666',
+    flex: 2,
+    textAlign: 'right',
   },
-  itemsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  image: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-  },
-  item: {
-    width: '30%',
+  itemsListContainer: {
     marginBottom: 20,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
   },
-  itemName: {
-    fontSize: 16,
+  itemsListTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 15,
+    color: '#333',
   },
-  itemType: {
+  itemListRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  itemListImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  itemListDetails: {
+    flex: 1,
+  },
+  itemListName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  itemListBrand: {
     fontSize: 14,
-    color: '#888',
+    color: '#007AFF',
+    marginBottom: 2,
+  },
+  itemListColor: {
+    fontSize: 12,
+    color: '#666',
   },
   errorText: {
     fontSize: 18,
