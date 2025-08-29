@@ -6,14 +6,43 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://172.20.10.2:3000';
 
+export interface IOutfitItem {
+  item: {
+    _id: string;
+    name: string;
+    color: string;
+    dressCode: string;
+    image: string;
+    brand: string;
+    material: string;
+    itemType: string;
+    dateAdded: string;
+    createdAt: string;
+    updatedAt: string;
+    usageCount: number;
+  };
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  _id: string;
+}
+
 export interface IOutfit {
   _id: string;
   name: string;
   occasion?: string;
   // keep misspelled property for backwards compatibility
   occassion?: string;
+  plannedDate?: string | null;
+  user: string;
+  items: IOutfitItem[];
   createdDate: string;
-  image_url: any;
+  createdAt: string;
+  updatedAt: string;
+  image_url?: any; // Keep for backward compatibility
 }
 
 export default function Outfit() {
@@ -96,7 +125,14 @@ export default function Outfit() {
       <FlatList
         data={outfits}
         keyExtractor={(item) => item._id}
-        renderItem={({ item }) => <OutfitCard name={item.name} imageUrl={item.image_url} outfitId={item._id} />}
+        renderItem={({ item }) => (
+          <OutfitCard 
+            name={item.name} 
+            imageUrl={item.image_url} 
+            outfitId={item._id}
+            items={item.items} // Pass the items array
+          />
+        )}
         numColumns={3}
         columnWrapperStyle={styles.row}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
