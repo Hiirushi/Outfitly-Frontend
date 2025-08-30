@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ItemsPopUp from '@/components/itemsPopUp';
+import WeatherWidget from '@/components/WeatherWidget';
 import axios from 'axios';
 
 interface DroppedItem {
@@ -212,6 +213,11 @@ export default function Canvas() {
 
   return (
     <View style={styles.container}>
+      {/* Weather widget top-left */}
+      <View style={styles.weatherWrap} pointerEvents="box-none">
+        <WeatherWidget />
+      </View>
+      {/* Canvas area with dropped items */}
       <View style={styles.canvasArea}>
         {droppedItems.length === 0 && (
           <View style={styles.dropZoneHint}>
@@ -400,5 +406,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#80AE85',
     marginLeft: 10,
   },
-  saveButtonText: { textAlign: 'center', fontSize: 16, fontWeight: 'bold', color: 'white' },
+  saveButtonText: {
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  weatherWrap: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 20,
+  },
 });
